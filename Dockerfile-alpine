@@ -44,6 +44,7 @@ ARG PHP_VERSION
 # We need PHP with several extensions
 RUN --mount=type=cache,target=/etc/apk/cache,sharing=locked \
 	apk add --update \
+	tzdata \
 	${PHP_VERSION}-apache2 \
 	${PHP_VERSION}-ctype \
 	${PHP_VERSION}-dom \
@@ -62,6 +63,11 @@ RUN --mount=type=cache,target=/etc/apk/cache,sharing=locked \
 	${PHP_VERSION}-pecl-apcu \
 	${PHP_VERSION}-pecl-imap \
 	${PHP_VERSION}-cli
+
+# Configure system timezone
+ENV TZ=America/Argentina/Buenos_Aires
+RUN cp /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone
 
 RUN ln -s ${PHP_VERSION} /usr/bin/php
 
