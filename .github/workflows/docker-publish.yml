@@ -46,7 +46,6 @@ jobs:
         with:
           # list of Docker images to use as base name for tags
           images: |
-            ${{ github.repository }}
             ghcr.io/${{ github.repository }}
 
       - name: Set up Docker Buildx
@@ -68,9 +67,7 @@ jobs:
           context: .
           file: ./Dockerfile-alpine
           platforms: ${{ matrix.platform }}
-          tags: |
-            ${{ github.repository }}
-            ghcr.io/${{ github.repository }}
+          tags: ghcr.io/${{ github.repository }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: push-by-digest=true,name-canonical=true,type=image,push=${{ github.event_name != 'pull_request' }}
           cache-from: type=gha,scope=buildkit-${{ matrix.platform }}
@@ -86,17 +83,15 @@ jobs:
   
   publish:
     runs-on: ubuntu-24.04
-    name: Publish ${{ github.ref_name }}${{ matrix.patches }}${{ matrix.registry == 'ghcr.io/' && ' on ghcr.io' || ''}}
+    name: Publish ${{ github.ref_name }}${{ matrix.patches }} on ghcr.io
     if: github.event_name != 'pull_request'
     needs: build
     strategy:
       matrix:
         patches: ["", "-patches"]
-        registry: ["", "ghcr.io/"]
     steps:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
-        if: ${{ matrix.registry == 'ghcr.io/' }}
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -111,7 +106,7 @@ jobs:
         with:
           # list of Docker images to use as base name for tags
           images: |
-            ${{ matrix.registry }}${{ github.repository }}
+            ghcr.io/${{ github.repository }}
           # generate Docker tags based on the following events/attributes
           tags: |
             type=ref,event=branch,suffix=${{ matrix.patches }}
@@ -120,7 +115,7 @@ jobs:
 
       - name: Create manifest list and push
         run: |
-          digests="${{ matrix.registry }}${{ github.repository }}@sha256:${{ needs.build.outputs.digest_amd }} sha256:${{ needs.build.outputs.digest_arm }}"
-          digests_patches="${{ matrix.registry }}${{ github.repository }}@sha256:${{ needs.build.outputs.digest_amd_patches }} sha256:${{ needs.build.outputs.digest_arm_patches }}"
+          digests="ghcr.io/${{ github.repository }}@sha256:${{ needs.build.outputs.digest_amd }} sha256:${{ needs.build.outputs.digest_arm }}"
+          digests_patches="ghcr.io/${{ github.repository }}@sha256:${{ needs.build.outputs.digest_amd_patches }} sha256:${{ needs.build.outputs.digest_arm_patches }}"
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $digests${{ matrix.patches == '-patches' && '_patches' || '' }}
