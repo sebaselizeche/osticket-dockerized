@@ -10,19 +10,15 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
-    name: Build${{ github.event_name != 'pull_request' && '/push' || '' }} ${{ github.ref_name }}${{ matrix.patches }} for ${{ matrix.platform }}
+    runs-on: ubuntu-24.04
+    name: Build${{ github.event_name != 'pull_request' && '/push' || '' }} ${{ github.ref_name }}${{ matrix.patches }} for linux/amd64
     strategy:
-      max-parallel: 2
       fail-fast: true
       matrix:
-        patches: ["", "-patches"] #we branch first on patches so we can run one amd and one arm both times (useful for caching)
-        platform: ["linux/amd64", "linux/arm64"]
+        patches: ["", "-patches"]
     outputs:
       digest_amd: ${{ steps.store_digest.outputs.digest_linux-amd64 }}
       digest_amd_patches: ${{ steps.store_digest.outputs.digest_linux-amd64-patches }}
-      digest_arm: ${{ steps.store_digest.outputs.digest_linux-arm64 }}
-      digest_arm_patches: ${{ steps.store_digest.outputs.digest_linux-arm64-patches }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -66,20 +62,20 @@ jobs:
         with:
           context: .
           file: ./Dockerfile-alpine
-          platforms: ${{ matrix.platform }}
+          platforms: linux/amd64
           tags: ghcr.io/${{ github.repository }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: push-by-digest=true,name-canonical=true,type=image,push=${{ github.event_name != 'pull_request' }}
-          cache-from: type=gha,scope=buildkit-${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=buildkit-${{ matrix.platform }}
+          cache-from: type=gha,scope=buildkit-linux/amd64
+          cache-to: type=gha,mode=max,scope=buildkit-linux/amd64
 
       - name: Store digest in output
         id: store_digest
         if: ${{ github.event_name != 'pull_request' }}
         run: |
-          platform="${{ matrix.platform }}${{ matrix.patches }}"
+          platform="linux-amd64${{ matrix.patches }}"
           digest="${{ steps.build.outputs.digest }}"
-          echo "digest_${platform//\//-}=${digest#sha256:}" >> "$GITHUB_OUTPUT"
+          echo "digest_${platform}=${digest#sha256:}" >> "$GITHUB_OUTPUT"
   
   publish:
     runs-on: ubuntu-24.04
@@ -115,7 +111,6 @@ jobs:
 
       - name: Create manifest list and push
         run: |
-          digests="ghcr.io/${{ github.repository }}@sha256:${{ needs.build.outputs.digest_amd }} sha256:${{ needs.build.outputs.digest_arm }}"
-          digests_patches="ghcr.io/${{ github.repository }}@sha256:${{ needs.build.outputs.digest_amd_patches }} sha256:${{ needs.build.outputs.digest_arm_patches }}"
+          digest="${{ matrix.patches == '-patches' && needs.build.outputs.digest_amd_patches || needs.build.outputs.digest_amd }}"
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $digests${{ matrix.patches == '-patches' && '_patches' || '' }}
+            ghcr.io/${{ github.repository }}@sha256:${digest}
