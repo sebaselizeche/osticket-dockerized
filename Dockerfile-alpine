@@ -109,6 +109,8 @@ COPY ./php-conf /etc/${PHP_VERSION}
 COPY ./docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
+HEALTHCHECK --timeout=2s --start-period=10s CMD curl --fail http://localhost || exit 1
+
 # Run both apache2-frontend as well as the cron daemon
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
