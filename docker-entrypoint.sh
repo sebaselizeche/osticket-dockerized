@@ -44,8 +44,8 @@ env | grep -E '^(OST|PHP).*' >> /etc/environment
 crond
 chmod 0644 /etc/cron.d/osticketcron
 
-# Configure Apache logs for Docker (stdout/stderr)
-ln -sf /dev/stdout /var/log/apache2/access.log
+# Configure Apache logs for Docker: only errors (access logs handled by nginx)
+ln -sf /dev/null /var/log/apache2/access.log
 ln -sf /dev/stderr /var/log/apache2/error.log
 
 #launch the application
