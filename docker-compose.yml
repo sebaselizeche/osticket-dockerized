@@ -24,6 +24,12 @@ services:
       - "PHP_OPCACHE_MAX_WASTED_PERCENTAGE=10"
       - "OST_PLUGINS_STORAGEFS_PATH=/var/www/attachments"
     restart: on-failure:2
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
     volumes:
       - attachments:/var/www/attachments:rw
     networks:
